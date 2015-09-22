@@ -1,0 +1,35 @@
+{
+  "name": "rx-slackbot",
+  "version": "0.0.1",
+  "description": "slack bot api with rx",
+  "main": "lib",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "rxjs",
+    "rx",
+    "slack"
+  ],
+  "author": "hiroqn",
+  "license": "MIT",
+  "dependencies": {
+    "request": "^2.62.0",
+    "rx": "^3.1.2",
+    "ws": "^0.8.0"
+  },
+  "devDependencies": {
+    "babel": "^5.8.23",
+    "babel-eslint": "^4.1.2",
+    "del": "^2.0.2",
+    "eslint-config-airbnb": "0.0.8",
+    "gulp": "^3.9.0",
+    "gulp-babel": "^5.2.1",
+    "gulp-eslint": "^1.0.0",
+    "gulp-jscs": "^2.0.0",
+    "run-sequence": "^1.1.2"
+  }
+}
