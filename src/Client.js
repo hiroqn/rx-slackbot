@@ -1,6 +1,5 @@
 import request from 'request';
 
-
 export default class Client {
   constructor({ token, timeout = 10000 }) {
     this.token = token;
