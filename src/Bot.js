@@ -4,10 +4,14 @@ import WebSocket from 'ws';
 import Client from './Client';
 
 export default class Bot extends Rx.Subject {
-  constructor({ token, reconnectTimeout = 5000, isBuffered = true }) {
+  constructor({ token, reconnectTimeout = 5000, isBuffered = true, server = null }) {
     super();
     if (!token) {
       throw new Error('NoToken');
+    }
+
+    if (server) {
+      this.createServer(server);
     }
     this.token = token;
     this.id = '';
@@ -33,7 +37,7 @@ export default class Bot extends Rx.Subject {
     });
     this.pauser.onNext(false);
     this.message = this
-      .filter(e => e.type === 'message' && !e.subtype && !e.edited)
+      .filter(e => e.type === 'message' && !e.subtype)
       .map((event) => {
         event.rawText = event.text;
         event.text = event.text
@@ -52,6 +56,7 @@ export default class Bot extends Rx.Subject {
   parse(data) {
     this.id = data.self.id;
     this.name = data.self.name;
+    this.team = data.team;
     this.channels = data.channels;
     this.groups = data.groups;
     this.ims = data.ims;
@@ -81,5 +86,16 @@ export default class Bot extends Rx.Subject {
         setTimeout(() => this.connect(), this.timeout);
       }
     });
+  }
+
+  createServer(server) {
+    this.server = WebSocket.createServer({
+      server,
+      verifyClient: (info, cb) => this.verifyClient(info, cb),
+    });
+  }
+
+  verifyClient() {
+    return true;
   }
 }
