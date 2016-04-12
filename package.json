@@ -17,11 +17,12 @@
   "author": "hiroqn",
   "license": "MIT",
   "dependencies": {
-    "@reactivex/rxjs": "^5.0.0-beta.2",
+    "@reactivex/rxjs": "^5.0.0-beta.5",
     "request": "^2.62.0",
     "ws": "^1.0.1"
   },
   "devDependencies": {
+    "babel-plugin-transform-async-to-generator": "^6.5.0",
     "babel-plugin-transform-es2015-destructuring": "^6.6.5",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.6.5",
     "babel-plugin-transform-es2015-parameters": "^6.6.5",

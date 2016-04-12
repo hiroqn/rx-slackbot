@@ -5,13 +5,14 @@ const xo = require('gulp-xo');
 const plumber = require('gulp-plumber');
 const del = require('del');
 
-gulp.task('build', gulp.series(
+gulp.task('default', gulp.series(
   () => del('lib'),
   () =>
     gulp.src('src/**/*.js')
       .pipe(sourcemaps.init())
       .pipe(babel({
         plugins: [
+          'transform-async-to-generator',
           'transform-es2015-modules-commonjs',
           'transform-es2015-destructuring',
           'transform-es2015-parameters'
