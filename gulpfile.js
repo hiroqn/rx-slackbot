@@ -18,7 +18,7 @@ gulp.task('default', gulp.series(
           'transform-es2015-parameters'
         ]
       }))
-      .pipe(sourcemaps.write('.'))
+      .pipe(sourcemaps.write())
       .pipe(gulp.dest('lib'))));
 
 const lint = () =>
