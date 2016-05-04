@@ -1,85 +1,129 @@
-import Rx from 'rx';
+'use strict';
+
+import {Subject, Observable, Scheduler} from '@reactivex/rxjs';
 import WebSocket from 'ws';
 
 import Client from './Client';
+import sleep from './util/sleep';
 
-export default class Bot extends Rx.Subject {
-  constructor({ token, reconnectTimeout = 5000, isBuffered = true }) {
-    super();
-    if (!token) {
-      throw new Error('NoToken');
-    }
-    this.token = token;
-    this.id = '';
-    this.name = '';
-    this.channels = [];
-    this.groups = [];
-    this.ims = [];
-    this.users = [];
-    this.timeout = reconnectTimeout;
-    this.client = new Client({ token });
-    this.socket = { send() {} };
-    this.pauser = new Rx.Subject();
-    this.queue = new Rx.Subject();
-    let count = 0;
-    let messageQueue;
-    if (isBuffered) {
-      messageQueue = this.queue.pausableBuffered(this.pauser);
-    } else {
-      messageQueue = this.queue.pausable(this.pauser);
-    }
-    messageQueue.subscribe(({type, channel, text}) => {
-      this.socket.send(JSON.stringify({ type, text, channel, id: count++ }));
-    });
-    this.pauser.onNext(false);
-    this.message = this
-      .filter(e => e.type === 'message' && !e.subtype && !e.edited)
-      .map((event) => {
-        event.rawText = event.text;
-        event.text = event.text
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&');
-        return event;
-      });
-    this.connect();
+export default class Bot extends Client {
+  constructor({ token }) {
+    super({token});
+    this._stream = this.connect();
+    this.count = 0;
   }
 
-  send(channel, text) {
-    this.queue.onNext({ channel, text, type: 'message' });
+  createFilterFunction(options) {
+    return ({message: {type, edited, subtype}}) => {
+      if (options.generator && type === 'hello') {
+        return true;
+      }
+
+      if (type !== 'message' || edited) {
+        return false;
+      }
+
+      if (options.subtype && options.subtype !== subtype) {
+        return false;
+      }
+
+      if (!options.subtype && subtype) {
+        return false;
+      }
+
+      return true;
+    }
   }
 
-  parse(data) {
-    this.id = data.self.id;
-    this.name = data.self.name;
-    this.channels = data.channels;
-    this.groups = data.groups;
-    this.ims = data.ims;
-    this.users = data.users;
+  hear(options) {
+    const stream = this._stream
+      .filter(this.createFilterFunction(options));
+
+    if (options.generator) {
+      stream
+        .mergeScan(({iterator}, {message, socket}) => {
+          const {value = Observable.empty(), done} = iterator.next(message);
+          const stream = value.share();
+          return stream
+            .merge(stream.isEmpty().filter(x => x).mapTo(null))
+            .map(reply => ({reply, iterator, done, message, socket}));
+        }, {
+          done: false,
+          get iterator() {
+            return options.generator();
+          }
+        }, 1)
+        .filter(({reply}) => Boolean(reply))
+        .takeWhile(({done}) => !done)
+        .subscribe(({message, socket, reply}) => {
+          const replyJSON = JSON.stringify({
+            id: this.count++,
+            type: 'message',
+            channel: message.channel,
+            text: `${reply}`
+          });
+
+          socket.send(replyJSON)
+        });
+      return this;
+    }
+
+    if (options.next) {
+      stream.subscribe(options);
+      return this
+    }
+    return this;
   }
 
   connect() {
-    return this.client.callApi('rtm.start').then(result => {
-      this.parse(result);
-      this.socket = new WebSocket(result.url);
-      this.socket
-        .on('open', () => this.pauser.onNext(true))
-        .on('message', (str) => this.onNext(JSON.parse(str)))
-        .on('close', () => {
-          this.pauser.onNext(false);
-          this.connect();
-        })
-        .on('error', () => this.connect());
-    }, err => {
-      if (this.timeout === Infinity) {
-        return;
-      }
-      if (err.message && err.message.startWith('TooManyRequests')) {
-        const [, timeout] = err.message.split(':');
-        setTimeout(() => this.connect(), Number(timeout) || 0);
-      } else {
-        setTimeout(() => this.connect(), this.timeout);
-      }
-    });
+    return this.callApi('rtm.start', {simple_latest: true, no_unreads: true})
+      .retryWhen(errorStream => errorStream
+        .zip(Observable.range(0, Infinity, Scheduler.async))
+        .flatMap(([error, retry]) => {
+          if (error.message === 'TooManyRequests') {
+            return Observable.of(error).delay(error.delay);
+          } else {
+            return Observable.of(error).delay(retry * 1000);
+          }
+        }))
+      .flatMap(status =>
+        new Observable(observer => {
+          const socket = new WebSocket(status.url);
+          const openStream = Observable.fromEvent(socket, 'open');
+          const openTimeStream = openStream.map(() => Date.now()).take(1);
+          const closeStream = Observable.fromEvent(socket, 'close');
+          const pingStream = openStream
+            .flatMap(() => Observable.interval(10 * 1000))
+            .map(() => Date.now())
+            .merge(openTimeStream)
+            .share();
+
+          Observable
+            .fromEvent(socket, 'pong')
+            .map(() => Date.now())
+            .merge(openTimeStream)
+            .combineLatest(pingStream, (pongTime, pingTime) => ({pongTime, pingTime}))
+            .map(({pongTime, pingTime}) => pongTime - pingTime)
+            .filter(diff => diff < -15000)
+            .takeUntil(closeStream)
+            .subscribe(() =>socket.terminate());
+
+          pingStream
+            .takeUntil(closeStream)
+            .subscribe(() => socket.ping(null, {}, true));
+
+          socket
+            .on('ping', (data, flags) => socket.pong())
+            .on('message', str => {
+              const message = JSON.parse(str);
+              observer.next({message, socket});
+            })
+            .on('error', error => observer.error(error))
+            .on('close', () => observer.complete());
+          return () => socket.close();
+        }))
+      .retry()
+      .repeat()
+      .share()
   }
 }
