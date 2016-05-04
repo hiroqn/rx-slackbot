@@ -1,13 +1,12 @@
 'use strict';
 
-import {Subject, Observable, Scheduler} from '@reactivex/rxjs';
+import {Observable, Scheduler} from '@reactivex/rxjs';
 import WebSocket from 'ws';
 
 import Client from './Client';
-import sleep from './util/sleep';
 
 export default class Bot extends Client {
-  constructor({ token }) {
+  constructor({token}) {
     super({token});
     this._stream = this.connect();
     this.count = 0;
@@ -36,7 +35,7 @@ export default class Bot extends Client {
       }
 
       return true;
-    }
+    };
   }
 
   hear(options) {
@@ -67,28 +66,28 @@ export default class Bot extends Client {
             text: `${reply}`
           });
 
-          socket.send(replyJSON)
+          socket.send(replyJSON);
         });
       return this;
     }
 
     if (options.next) {
       stream.subscribe(options);
-      return this
+      return this;
     }
     return this;
   }
 
   connect() {
+    /* eslint camelcase: ["error", {properties: "never"}] */
     return this.callApi('rtm.start', {simple_latest: true, no_unreads: true})
       .retryWhen(errorStream => errorStream
         .zip(Observable.range(0, Infinity, Scheduler.async))
         .flatMap(([error, retry]) => {
           if (error.message === 'TooManyRequests') {
             return Observable.of(error).delay(error.delay);
-          } else {
-            return Observable.of(error).delay(retry * 1000);
           }
+          return Observable.of(error).delay(retry * 1000);
         }))
       .flatMap(status =>
         new Observable(observer => {
@@ -110,7 +109,7 @@ export default class Bot extends Client {
             .map(({pongTime, pingTime}) => pongTime - pingTime)
             .filter(diff => diff < -15000)
             .takeUntil(closeStream)
-            .subscribe(() =>socket.terminate());
+            .subscribe(::socket.terminate);
 
           pingStream
             .takeUntil(closeStream)
@@ -128,6 +127,6 @@ export default class Bot extends Client {
         }))
       .retry()
       .repeat()
-      .share()
+      .share();
   }
 }
