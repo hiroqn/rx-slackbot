@@ -12,7 +12,7 @@ gulp.task('default', gulp.series(
       .pipe(sourcemaps.init())
       .pipe(babel({
         plugins: [
-          'transform-async-to-generator',
+          'transform-function-bind',
           'transform-es2015-modules-commonjs',
           'transform-es2015-destructuring',
           'transform-es2015-parameters'
@@ -25,6 +25,8 @@ const lint = () =>
   gulp.src(['src/**/*.js', 'gulpfile.js'])
     .pipe(plumber())
     .pipe(xo());
+
+gulp.task('test', () => gulp.src(['src/**/*.js', 'gulpfile.js']).pipe(xo()));
 
 gulp.task('watch', gulp.series(lint, () => {
   gulp.watch(['src/**/*.js', 'gulpfile.js'], lint);

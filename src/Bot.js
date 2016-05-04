@@ -14,7 +14,7 @@ export default class Bot extends Client {
   }
 
   createFilterFunction(options) {
-    return ({message: {type, edited, subtype}}) => {
+    return ({message: {type, edited, subtype, channel}}) => {
       if (options.generator && type === 'hello') {
         return true;
       }
@@ -28,6 +28,10 @@ export default class Bot extends Client {
       }
 
       if (!options.subtype && subtype) {
+        return false;
+      }
+
+      if (options.channel && channel !== options.channel) {
         return false;
       }
 
@@ -90,17 +94,17 @@ export default class Bot extends Client {
         new Observable(observer => {
           const socket = new WebSocket(status.url);
           const openStream = Observable.fromEvent(socket, 'open');
-          const openTimeStream = openStream.map(() => Date.now()).take(1);
+          const openTimeStream = openStream.map(::Date.now).take(1);
           const closeStream = Observable.fromEvent(socket, 'close');
           const pingStream = openStream
             .flatMap(() => Observable.interval(10 * 1000))
-            .map(() => Date.now())
+            .map(::Date.now)
             .merge(openTimeStream)
             .share();
 
           Observable
             .fromEvent(socket, 'pong')
-            .map(() => Date.now())
+            .map(::Date.now)
             .merge(openTimeStream)
             .combineLatest(pingStream, (pongTime, pingTime) => ({pongTime, pingTime}))
             .map(({pongTime, pingTime}) => pongTime - pingTime)
@@ -113,14 +117,14 @@ export default class Bot extends Client {
             .subscribe(() => socket.ping(null, {}, true));
 
           socket
-            .on('ping', (data, flags) => socket.pong())
+            .on('ping', ::socket.pong)
             .on('message', str => {
               const message = JSON.parse(str);
               observer.next({message, socket});
             })
-            .on('error', error => observer.error(error))
-            .on('close', () => observer.complete());
-          return () => socket.close();
+            .on('error', ::observer.error)
+            .on('close', ::observer.complete);
+          return ::socket.close;
         }))
       .retry()
       .repeat()
