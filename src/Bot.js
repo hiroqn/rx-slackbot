@@ -2,23 +2,26 @@
 
 import {Observable, Scheduler} from '@reactivex/rxjs';
 import WebSocket from 'ws';
+import ms from 'ms';
 
 import Client from './Client';
 
 export default class Bot extends Client {
-  constructor({token}) {
-    super({token});
+  constructor({token, pingInterval = ms('5s'), pingRetryLimit = 2, timeout}) {
+    super({token, timeout});
     this._stream = this.connect();
+    this.pingInterval = pingInterval;
     this.count = 0;
+    this.pingRetryLimit = pingRetryLimit;
   }
 
   createFilterFunction(options) {
-    return ({message: {type, edited, subtype, channel}}) => {
+    return ({message: {type, edited, subtype, channel, replyTo}}) => {
       if (options.generator && type === 'hello') {
         return true;
       }
 
-      if (type !== 'message' || edited) {
+      if (type !== 'message' || edited || replyTo) {
         return false;
       }
 
@@ -92,11 +95,11 @@ export default class Bot extends Client {
       .flatMap(status =>
         new Observable(observer => {
           const socket = new WebSocket(status.url);
-          const openStream = Observable.fromEvent(socket, 'open');
+          const openStream = Observable.fromEvent(socket, 'open').take(1);
           const openTimeStream = openStream.map(::Date.now).take(1);
-          const closeStream = Observable.fromEvent(socket, 'close');
+          const closeStream = Observable.fromEvent(socket, 'close').take(1);
           const pingStream = openStream
-            .flatMap(() => Observable.interval(10 * 1000))
+            .flatMap(() => Observable.interval(this.pingInterval))
             .map(::Date.now)
             .merge(openTimeStream)
             .share();
@@ -105,9 +108,8 @@ export default class Bot extends Client {
             .fromEvent(socket, 'pong')
             .map(::Date.now)
             .merge(openTimeStream)
-            .combineLatest(pingStream, (pongTime, pingTime) => ({pongTime, pingTime}))
-            .map(({pongTime, pingTime}) => pongTime - pingTime)
-            .filter(diff => diff < -15000)
+            .combineLatest(pingStream, (pongTime, pingTime) => pingTime - pongTime)
+            .filter(diff => diff > this.pingInterval * (this.pingRetryLimit - 0.5))
             .takeUntil(closeStream)
             .subscribe(::socket.terminate);
 
@@ -119,7 +121,7 @@ export default class Bot extends Client {
             .on('ping', ::socket.pong)
             .on('message', str => {
               const message = JSON.parse(str);
-              observer.next({message, socket});
+              observer.next({message, socket, status});
             })
             .on('error', ::observer.error)
             .on('close', ::observer.complete);

@@ -1,8 +1,9 @@
 import request from 'request';
 import {Observable} from '@reactivex/rxjs';
+import ms from 'ms';
 
 export default class Client {
-  constructor({token, timeout = 10000}) {
+  constructor({token, timeout = ms('10s')}) {
     if (!token) {
       throw new Error('NoToken');
     }
