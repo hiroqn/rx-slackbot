@@ -11,8 +11,14 @@ export default class Bot extends Client {
     super({token, timeout});
     this._stream = this.connect();
     this.pingInterval = pingInterval;
-    this.count = 0;
     this.pingRetryLimit = pingRetryLimit;
+    this.counter = function* () {
+      let i = 0;
+      while (true) {
+        yield i;
+        i += 1;
+      }
+    }();
   }
 
   createFilterFunction(options) {
@@ -46,32 +52,7 @@ export default class Bot extends Client {
       .filter(this.createFilterFunction(options));
 
     if (options.generator) {
-      stream
-        .mergeScan(({iterator}, {message, socket}) => {
-          const {value = Observable.empty(), done} = iterator.next(message);
-          const stream = value.share();
-          return stream
-            .merge(stream.isEmpty().filter(x => x).mapTo(null))
-            .map(reply => ({reply, iterator, done, message, socket}));
-        }, {
-          done: false,
-          get iterator() {
-            return options.generator();
-          }
-        }, 1)
-        .filter(({reply}) => Boolean(reply))
-        .takeWhile(({done}) => !done)
-        .subscribe(({message, socket, reply}) => {
-          const replyJSON = JSON.stringify({
-            id: this.count++,
-            type: 'message',
-            channel: message.channel,
-            text: `${reply}`
-          });
-
-          socket.send(replyJSON);
-        });
-      return this;
+      return this.hearWithGenerator(options, options.generator);
     }
 
     if (options.next) {
@@ -81,6 +62,49 @@ export default class Bot extends Client {
     return this;
   }
 
+  /**
+   *
+   * @param options
+   * @param generator
+   * @returns {Bot}
+   */
+  hearWithGenerator(options, generator) {
+    const messageStream = this._stream.filter(this.createFilterFunction(options));
+    messageStream
+      .mergeScan(({iterator}, {message, socket}) => {
+        const {value = Observable.empty(), done} = iterator.next(message);
+        const stream = value.share();
+        return stream
+          .merge(stream.isEmpty().filter(x => x).mapTo(null))
+          .map(reply => ({reply, iterator, done, message, socket}));
+      }, {
+        done: false,
+        get iterator() {
+          return generator();
+        }
+      }, 1)
+      .filter(({reply}) => Boolean(reply))
+      .takeWhile(({done}) => !done)
+      .subscribe(({message, socket, reply}) => {
+        if (typeof reply === 'string') {
+          const replyJSON = JSON.stringify({
+            id: this.counter.next(),
+            type: 'message',
+            channel: message.channel,
+            text: `${reply}`
+          });
+
+          socket.send(replyJSON);
+        }
+
+      });
+    return this;
+  }
+
+  /**
+   *
+   * @returns {Observable}
+   */
   connect() {
     /* eslint camelcase: ["error", {properties: "never"}] */
     return this.callApi('rtm.start', {simple_latest: true, no_unreads: true})
