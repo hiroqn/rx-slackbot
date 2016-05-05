@@ -1,5 +1,5 @@
 {
-  "name": "rx-slackbot",
+  "name": "@hiroqn/slackbot",
   "version": "0.0.1",
   "description": "slack bot api with rx",
   "main": "lib",
@@ -22,8 +22,17 @@
     "request": "^2.62.0",
     "ws": "^1.0.1"
   },
+  "babel": {
+    "plugins": [
+      "transform-es2015-destructuring",
+      "transform-es2015-modules-commonjs",
+      "transform-es2015-parameters"
+    ]
+  },
+  "engines": {
+    "node": ">=4.0"
+  },
   "devDependencies": {
-    "babel-plugin-transform-async-to-generator": "^6.5.0",
     "babel-plugin-transform-es2015-destructuring": "^6.6.5",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.6.5",
     "babel-plugin-transform-es2015-parameters": "^6.6.5",
