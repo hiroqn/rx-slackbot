@@ -1,36 +1,24 @@
 {
   "name": "@hiroqn/slackbot",
-  "version": "0.0.1",
-  "description": "slack bot api with rx",
-  "main": "lib",
-  "scripts": {
-    "test": "gulp test"
-  },
-  "files": [
-    "lib"
-  ],
-  "keywords": [
-    "rxjs",
-    "rx",
-    "slack"
-  ],
+  "description": "slackbot with rx",
+  "version": "0.1.0-alpha.0",
   "author": "hiroqn",
-  "license": "MIT",
-  "dependencies": {
-    "@reactivex/rxjs": "^5.0.0-beta.5",
-    "ms": "^0.7.1",
-    "request": "^2.62.0",
-    "ws": "^1.0.1"
-  },
   "babel": {
     "plugins": [
       "transform-es2015-destructuring",
       "transform-es2015-modules-commonjs",
-      "transform-es2015-parameters"
+      "transform-es2015-parameters",
+      "transform-function-bind"
     ]
   },
-  "engines": {
-    "node": ">=4.0"
+  "bugs": {
+    "url": "https://github.com/hiroqn/slackbot/issues"
+  },
+  "dependencies": {
+    "@reactivex/rxjs": "^5.0.0-beta.7",
+    "ms": "^0.7.1",
+    "request": "^2.62.0",
+    "ws": "^1.0.1"
   },
   "devDependencies": {
     "babel-plugin-transform-es2015-destructuring": "^6.6.5",
@@ -43,6 +31,28 @@
     "gulp-plumber": "^1.1.0",
     "gulp-sourcemaps": "^1.6.0",
     "gulp-xo": "^0.9.0"
+  },
+  "engines": {
+    "node": ">=4.0"
+  },
+  "files": [
+    "lib"
+  ],
+  "homepage": "https://github.com/hiroqn/slackbot#readme",
+  "jsnext:main": "src",
+  "keywords": [
+    "rx",
+    "rxjs",
+    "slack"
+  ],
+  "license": "MIT",
+  "main": "lib",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hiroqn/slackbot.git"
+  },
+  "scripts": {
+    "test": "gulp test"
   },
   "xo": {
     "esnext": true,
