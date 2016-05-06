@@ -12,13 +12,13 @@ export default class Bot extends Client {
     this._stream = this.connect();
     this.pingInterval = pingInterval;
     this.pingRetryLimit = pingRetryLimit;
-    this.counter = function* () {
+    this.counter = (function * () {
       let i = 0;
-      while (true) {
+      while (i >= 0) {
         yield i;
         i += 1;
       }
-    }();
+    })();
   }
 
   createFilterFunction(options) {
