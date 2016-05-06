@@ -114,6 +114,11 @@ export default class Bot extends Client {
           if (error.message === 'TooManyRequests') {
             return Observable.of(error).delay(error.delay);
           }
+
+          if (error.message === 'invalid_auth') {
+            return Observable.of(error).delay(ms('1h'));
+          }
+
           return Observable.of(error).delay(retry * 1000);
         }))
       .flatMap(status =>
