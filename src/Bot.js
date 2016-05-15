@@ -7,7 +7,7 @@ import ms from 'ms';
 import Client from './Client';
 
 export default class Bot extends Client {
-  constructor({token, pingInterval = ms('5s'), pingRetryLimit = 2, timeout}) {
+  constructor({token, pingInterval = ms('10s'), pingRetryLimit = 2, timeout}) {
     super({token, timeout});
     this._stream = this.connect();
     this.pingInterval = pingInterval;
@@ -22,7 +22,7 @@ export default class Bot extends Client {
   }
 
   createFilterFunction(options) {
-    return ({message: {type, edited, subtype, channel, replyTo}}) => {
+    return ({message: {type, edited, subtype, channel, reply_to: replyTo}}) => {
       if (options.generator && type === 'hello') {
         return true;
       }
@@ -71,9 +71,10 @@ export default class Bot extends Client {
   hearWithGenerator(options, generator) {
     const messageStream = this._stream.filter(this.createFilterFunction(options));
     messageStream
+      .do(({message}) => console.log(message))
       .mergeScan(({iterator}, {message, socket}) => {
         const {value = Observable.empty(), done} = iterator.next(message);
-        const stream = value.share();
+        const stream = (typeof value === 'object' ? value || Observable.empty() : Observable.of(`${value}`)).share();
         return stream
           .merge(stream.isEmpty().filter(x => x).mapTo(null))
           .map(reply => ({reply, iterator, done, message, socket}));
@@ -96,7 +97,6 @@ export default class Bot extends Client {
 
           socket.send(replyJSON);
         }
-
       });
     return this;
   }
@@ -125,19 +125,16 @@ export default class Bot extends Client {
         new Observable(observer => {
           const socket = new WebSocket(status.url);
           const openStream = Observable.fromEvent(socket, 'open').take(1);
-          const openTimeStream = openStream.map(::Date.now).take(1);
           const closeStream = Observable.fromEvent(socket, 'close').take(1);
           const pingStream = openStream
-            .flatMap(() => Observable.interval(this.pingInterval))
-            .map(::Date.now)
-            .merge(openTimeStream)
+            .flatMap(() => Observable.of(0).merge(Observable.interval(this.pingInterval)))
+            .timestamp()
             .share();
 
-          Observable
-            .fromEvent(socket, 'pong')
-            .map(::Date.now)
-            .merge(openTimeStream)
-            .combineLatest(pingStream, (pongTime, pingTime) => pingTime - pongTime)
+          const pongStream = Observable.fromEvent(socket, 'pong').timestamp();
+
+          pingStream
+            .withLatestFrom(pongStream, (ping, pong) => ping.timestamp - pong.timestamp)
             .filter(diff => diff > this.pingInterval * (this.pingRetryLimit - 0.5))
             .takeUntil(closeStream)
             .subscribe(::socket.terminate);

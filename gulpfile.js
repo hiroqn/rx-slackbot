@@ -6,7 +6,7 @@ const plumber = require('gulp-plumber');
 const del = require('del');
 
 gulp.task('default', gulp.series(
-  () => del(['lib'], { dot: true }),
+  () => del(['lib'], {dot: true}),
   () =>
     gulp.src('src/**/*.js')
       .pipe(sourcemaps.init())
