@@ -1,8 +1,8 @@
 import request from 'request';
-import {Observable} from '@reactivex/rxjs';
+import {Observable} from 'rxjs/Observable';
 import ms from 'ms';
 
-export default class Client {
+export class Client {
   constructor({token, timeout = ms('10s')}) {
     if (!token) {
       throw new Error('NoToken');
@@ -12,7 +12,7 @@ export default class Client {
   }
 
   callApi(method = 'api.test', params = {}) {
-    return Observable.create(observer => {
+    return new Observable(observer => {
       params.token = params.token || this.token;
       request({
         uri: `https://slack.com/api/${method}`,
@@ -37,6 +37,6 @@ export default class Client {
         observer.next(response.body);
         observer.complete();
       });
-    }).share();
+    });
   }
 }
