@@ -94,7 +94,7 @@ export class Bot extends Client {
         const iterator = generator(message);
         let {value, done} = iterator.next();
         while (!done) {
-          const result = iterator.next(yield match(value, observable => {
+          const result = iterator.next(yield match(observable => {
             switch (typeof observable) {
               case 'string':
                 return of(observable);
@@ -105,7 +105,7 @@ export class Bot extends Client {
               default:
                 return empty();
             }
-          }));
+          }, value));
           value = result.value;
           done = result.done;
         }

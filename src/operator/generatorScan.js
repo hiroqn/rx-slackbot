@@ -2,29 +2,6 @@ import {errorObject} from 'rxjs/util/errorObject';
 import {subscribeToResult} from 'rxjs/util/subscribeToResult';
 import {OuterSubscriber} from 'rxjs/OuterSubscriber';
 
-/**
- * @param generator
- * @param seed
- * @param concurrent
- * @return {Observable<R>|WebSocketSubject<T>|Observable<T>}
- * @method mergeScan
- * @owner Observable
- */
-export function generatorScan(generator, project, concurrent = Number.POSITIVE_INFINITY) {
-  return this.lift(new GeneratorScanOperator(generator, project, concurrent));
-}
-
-export class GeneratorScanOperator {
-  constructor(generator, concurrent) {
-    this.generator = generator;
-    this.concurrent = concurrent;
-  }
-
-  call(subscriber, source) {
-    return source._subscribe(new GeneratorScanSubscriber(subscriber, this.generator, this.concurrent));
-  }
-}
-
 export class GeneratorScanSubscriber extends OuterSubscriber {
   constructor(destination, generator, concurrent) {
     super(destination);
@@ -45,10 +22,9 @@ export class GeneratorScanSubscriber extends OuterSubscriber {
         try {
           if (this.iterator) {
             return this.iterator.next(value);
-          } else {
-            this.iterator = this.generator(value);
-            return this.iterator.next();
           }
+          this.iterator = this.generator(value);
+          return this.iterator.next();
         } catch (error) {
           errorObject.e = error;
           return {value: errorObject, done: true};
@@ -59,16 +35,13 @@ export class GeneratorScanSubscriber extends OuterSubscriber {
 
       if (value === errorObject) {
         destination.error(errorObject.e);
+      } else if (done) {
+        destination.complete();
       } else {
-        if (done) {
-          destination.complete();
-        } else {
-          this.active += 1;
-          this._innerSub(value, nextValue, index);
-        }
+        this.active += 1;
+        this._innerSub(value, nextValue, index);
       }
-    }
-    else {
+    } else {
       this.buffer.push(nextValue);
     }
   }
@@ -85,7 +58,7 @@ export class GeneratorScanSubscriber extends OuterSubscriber {
     }
   }
 
-  notifyNext(outerValue, innerValue, outerIndex, innerIndex, innerSub) {
+  notifyNext(outerValue, innerValue) {
     const {destination} = this;
     destination.next({
       outer: outerValue,
@@ -103,4 +76,27 @@ export class GeneratorScanSubscriber extends OuterSubscriber {
       this.destination.complete();
     }
   }
+}
+
+export class GeneratorScanOperator {
+  constructor(generator, concurrent) {
+    this.generator = generator;
+    this.concurrent = concurrent;
+  }
+
+  call(subscriber, source) {
+    return source._subscribe(new GeneratorScanSubscriber(subscriber, this.generator, this.concurrent));
+  }
+}
+
+/**
+ * @param generator
+ * @param seed
+ * @param concurrent
+ * @return {Observable<R>|WebSocketSubject<T>|Observable<T>}
+ * @method mergeScan
+ * @owner Observable
+ */
+export function generatorScan(generator, project, concurrent = Number.POSITIVE_INFINITY) {
+  return this.lift(new GeneratorScanOperator(generator, project, concurrent));
 }

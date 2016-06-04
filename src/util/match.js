@@ -1,3 +1,3 @@
-export function match(x, f) {
-  return f(x)
+export function match(f, ...xs) {
+  return f(...xs);
 }
