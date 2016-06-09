@@ -25,7 +25,6 @@ import ms from 'ms';
 
 import {generatorScan} from './operator/generatorScan';
 import {Client} from './Client';
-import {match} from './util/match';
 
 export class Bot extends Client {
   constructor({token, pingInterval = ms('10s'), pingRetryLimit = 2, timeout}) {
@@ -94,7 +93,7 @@ export class Bot extends Client {
         const iterator = generator(message);
         let {value, done} = iterator.next();
         while (!done) {
-          const result = iterator.next(yield match(observable => {
+          const result = iterator.next(yield observable => {
             switch (typeof observable) {
               case 'string':
                 return of(observable);
@@ -105,7 +104,7 @@ export class Bot extends Client {
               default:
                 return empty();
             }
-          }, value));
+          }(value));
           value = result.value;
           done = result.done;
         }

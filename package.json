@@ -15,7 +15,6 @@
     "url": "https://github.com/hiroqn/slackbot/issues"
   },
   "dependencies": {
-    "@reactivex/rxjs": "^5.0.0-beta.7",
     "ms": "^0.7.1",
     "request": "^2.62.0",
     "rxjs": "^5.0.0-beta.8",
